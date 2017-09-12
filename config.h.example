@@ -19,7 +19,8 @@
 // Pin-Setup
 // GPIO15 low, GPIO0 high, GPIO2 high: boot sketch from flash (external 10k pull resistors)
 // GPIO16 must be connected to Reset for deep sleep
-#define DHT_PIN   3   // needs external Pull-Down
+#define DHT_PIN    // Power Sensor
+#define DHT_WIRE   // Sensor Data
 
 // Debugging
 //#define DEBUG       // not working on ESP-01 as UART-Pins are already in use
