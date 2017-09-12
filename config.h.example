@@ -1,0 +1,25 @@
+// Wifi-Setup
+#define DEFAULT_SSID      "ssid"      // Enter your network SSID
+#define DEFAULT_PASSWORD  "pwd"       // Enter your network WPA key
+#define DEFAULT_HOSTNAME  "maindoor"  // Enter your device friendly name
+
+// MQTT-Setup
+#define MQTT_SERVER       "server"    // Enter Hostname or IP of MQTT-Server
+#define MQTT_USER         "user"      // Enter Username for MQTT Connection
+#define MQTT_PASSWORD     "pwd"       // Enter Password for MQTT Connection
+
+// MQTT-Topics
+#define TEMP_TOPIC        "sensor/val/temp"
+#define HUM_TOPIC         "sensor/val/hum"
+#define BATTERY_TOPIC     "sensor/stat/bat"
+
+// ADC-Setup
+#define VCC_ADJ  1.000    // Adjust Voltage output of ADC to measured Voltage
+
+// Pin-Setup
+// GPIO15 low, GPIO0 high, GPIO2 high: boot sketch from flash (external 10k pull resistors)
+// GPIO16 must be connected to Reset for deep sleep
+#define DHT_PIN   3   // needs external Pull-Down
+
+// Debugging
+//#define DEBUG       // not working on ESP-01 as UART-Pins are already in use
