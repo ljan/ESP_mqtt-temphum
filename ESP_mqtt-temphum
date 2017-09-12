@@ -1,0 +1,137 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
+#include <PubSubClient.h>
+
+#include "config.h"
+#include "debug.h"
+
+const int sleepTimeS = 5*60;       // Time in Seconds in Deep-Sleep between checks
+
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+
+ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
+
+// DHT
+DHT_WIRE
+
+// *******SETUP*******
+// periodically check if door is open and go back to sleep, when open go to loop()
+void setup()
+{
+  dbserialbegin(115200);
+  dbprintln("");
+  dbprintln("");
+  dbprintln("BOOT");
+  dbprint("VCC Voltage: ");
+  dbprintln(ESP.getVcc()*VCC_ADJ/1024.00f);
+  
+  pinMode(DHT_PIN, OUTPUT);
+  digitalWrite(DHT_PIN, HIGH);  // do this early to let the dht start up
+  
+  // start wifi
+  setup_wifi();
+  
+  // setup mqtt
+  mqttClient.setServer(MQTT_SERVER, 1883);
+}
+//*************** end setup *****************************
+
+// *******LOOP*******
+// start wifi, connect mqtt and check if arm_topic is set, loop till door is closed again and publish "1" to reed_topic
+// when armed toggle buzzer, falling edge on button unarms, 5 times pressed ota is initiated
+// after door is closed publish "0" to reed_topic and batteryvoltage to battery_topic and go back to sleep
+void loop()
+{
+  // connect mqtt
+  if (!mqttClient.connected())
+  {
+    reconnect_mqtt();
+//    mqttClient.subscribe(TOPIC);
+  }
+  
+  mqttClient.publish(TEMP_TOPIC, "temp", false);
+  mqttClient.publish(BATTERY_TOPIC, String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
+
+  mqttClient.loop();
+  
+  yield();
+  delay(100);
+  gotodeepsleep(sleepTimeS);
+}
+//*************** end main *****************************
+
+void setup_wifi()
+{
+  /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
+  would try to act as both a client and an access-point and could cause
+  network-issues with your other WiFi-devices on your WiFi-network. */
+  WiFi.mode(WIFI_STA);
+  WiFi.persistent(false);
+  WiFi.hostname(DEFAULT_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));  
+  WiFi.begin(DEFAULT_SSID, DEFAULT_PASSWORD);
+  
+  dbprint("Connecting to ");
+  dbprint(DEFAULT_SSID);
+
+  /* This function returns following codes to describe what is going on with Wi-Fi connection: 
+  0 : WL_IDLE_STATUS when Wi-Fi is in process of changing between statuses
+  1 : WL_NO_SSID_AVAIL in case configured SSID cannot be reached
+  3 : WL_CONNECTED after successful connection is established
+  4 : WL_CONNECT_FAILED if password is incorrect
+  6 : WL_DISCONNECTED if module is not configured in station mode
+  Serial.printf( "Connection status: %d\n", WiFi.status() ); */
+  while(WiFi.status() != WL_CONNECTED)
+  {
+    delay(200); // pauses the sketch for a given number of milliseconds and allows WiFi and TCP/IP tasks to run
+    dbprint(".");
+  }
+  dbprint("WiFi connected, IP address: ");
+  dbprintln(WiFi.localIP());
+}
+
+void reconnect_mqtt()
+{
+  // Loop until door is closed
+  while (!mqttClient.connected())
+  {
+    dbprint("Attempting MQTT connection...");
+    // Attempt to connect
+    // If you do not want to use a username and password, change next line to
+    // if (mqttClient.connect("ESP8266Client"))
+    if (mqttClient.connect(DEFAULT_HOSTNAME, MQTT_USER, MQTT_PASSWORD))
+    {
+      dbprintln("connected");
+    } else
+    {
+      dbprint("failed, rc=");
+      dbprint(mqttClient.state());
+      dbprintln(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+//      delay(5000);
+      gotodeepsleep(5);
+    }
+  }
+}
+
+void gotodeepsleep(int sleeptime)
+{
+/*ESP.deepSleep(microseconds, mode) will put the chip into deep sleep.
+  mode is one of WAKE_RF_DEFAULT, WAKE_RFCAL, WAKE_NO_RFCAL, WAKE_RF_DISABLED.
+  (GPIO16 needs to be tied to RST to wake from deepSleep.)*/
+  #ifdef DEBUG
+    ESP.deepSleep(sleeptime*1e6,WAKE_RF_DEFAULT);
+    yield();
+    delay(100);
+//    delay(sleeptime*1e3);
+//    ESP.reset();
+  #else
+    ESP.deepSleep(sleeptime*1e6,WAKE_RF_DEFAULT);
+    yield();
+    delay(100);
+  #endif
+}
+
+// EOF
