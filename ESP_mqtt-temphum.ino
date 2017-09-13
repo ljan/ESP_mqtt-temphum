@@ -12,7 +12,7 @@ const int sleepTimeS = 15*60;       // Time in Seconds in Deep-Sleep between che
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-DHT dht(DHTWIRE, DHTTYPE);
+DHT dht(DHT_PIN, DHTTYPE);
 
 ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
 
@@ -27,8 +27,8 @@ void setup()
   dbprint("VCC: ");
   dbprintln(ESP.getVcc()*VCC_ADJ/1024.00f);
 
-  pinMode(DHTPINPWR, OUTPUT);
-  digitalWrite(DHTPINPWR, HIGH);
+  pinMode(DHT_PWR, OUTPUT);
+  digitalWrite(DHT_PWR, HIGH);
   
   // DHT Setup
   dht.begin();
@@ -84,7 +84,7 @@ void loop()
   delay(100);
   
   dbprintln("Power off Sensor -  going to deep sleep");
-  digitalWrite(DHTPINPWR, LOW);
+  digitalWrite(DHT_PWR, LOW);
   
   gotodeepsleep(sleepTimeS);
 }
