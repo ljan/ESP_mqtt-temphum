@@ -13,14 +13,17 @@
 #define HUM_TOPIC         "sensor/val/hum"
 #define BATTERY_TOPIC     "sensor/stat/bat"
 
+// Sensor
+#define DHTTYPE   DHT22
+
 // ADC-Setup
 #define VCC_ADJ  1.000    // Adjust Voltage output of ADC to measured Voltage
 
 // Pin-Setup
 // GPIO15 low, GPIO0 high, GPIO2 high: boot sketch from flash (external 10k pull resistors)
 // GPIO16 must be connected to Reset for deep sleep
-#define DHT_PIN    // Power Sensor
-#define DHT_WIRE   // Sensor Data
+#define DHT_PWR    13 // Power Sensor
+#define DHT_WIRE   14 // Sensor Data
 
 // Debugging
-//#define DEBUG       // not working on ESP-01 as UART-Pins are already in use
+#define DEBUG       // not working on ESP-01 as UART-Pins are already in use
