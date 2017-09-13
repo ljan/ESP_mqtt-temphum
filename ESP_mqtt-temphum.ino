@@ -1,10 +1,9 @@
 #include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
-#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
+
 #include <PubSubClient.h>
 
 #include "DHT.h"
+
 #include "config.h"
 #include "debug.h"
 
