@@ -4,38 +4,44 @@
 #include <ArduinoOTA.h>
 #include <PubSubClient.h>
 
+#include "DHT.h"
 #include "config.h"
 #include "debug.h"
 
-const int sleepTimeS = 5*60;       // Time in Seconds in Deep-Sleep between checks
+const int sleepTimeS = 15*60;       // Time in Seconds in Deep-Sleep between checks
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
+DHT dht(DHTWIRE, DHTTYPE);
 
-// DHT
-DHT_WIRE
+ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
 
 // *******SETUP*******
 // periodically check if door is open and go back to sleep, when open go to loop()
 void setup()
 {
-  dbserialbegin(115200);
+  dbserialbegin(74880);
   dbprintln("");
   dbprintln("");
   dbprintln("BOOT");
-  dbprint("VCC Voltage: ");
+  dbprint("VCC: ");
   dbprintln(ESP.getVcc()*VCC_ADJ/1024.00f);
+
+  pinMode(DHTPINPWR, OUTPUT);
+  digitalWrite(DHTPINPWR, HIGH);
   
-  pinMode(DHT_PIN, OUTPUT);
-  digitalWrite(DHT_PIN, HIGH);  // do this early to let the dht start up
+  // DHT Setup
+  dht.begin();
   
   // start wifi
   setup_wifi();
   
   // setup mqtt
   mqttClient.setServer(MQTT_SERVER, 1883);
+  reconnect_mqtt();
+  mqttClient.loop(); // This allows the client to maintain the connection and check for any incoming messages.
+  yield();
 }
 //*************** end setup *****************************
 
@@ -45,20 +51,42 @@ void setup()
 // after door is closed publish "0" to reed_topic and batteryvoltage to battery_topic and go back to sleep
 void loop()
 {
-  // connect mqtt
-  if (!mqttClient.connected())
-  {
-    reconnect_mqtt();
-//    mqttClient.subscribe(TOPIC);
-  }
+  float hum=0.0;
+  float tem= 0.0;
+  bool sensor=true;
+  int last=millis()+100;
   
-  mqttClient.publish(TEMP_TOPIC, "temp", false);
+  dbprint("Reading Sensor");
+  do {
+    sensor=true;
+    delay(10); // Delay between measurements
+    // Reading temperature or humidity takes about 250 milliseconds!
+    // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+    tem=dht.readTemperature();
+    hum=dht.readHumidity();
+    if(isnan(hum) || isnan(tem)) {
+      sensor=false;
+      if(last <= millis()) {
+        dbprint(".");
+        last=millis()+100;
+      }
+    }
+  } while(!sensor && millis()<=10000);
+  last=millis();
+  dbprintln("DONE");
+  
+  mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
+  mqttClient.publish(HUM_TOPIC, String(hum).c_str(), false);
   mqttClient.publish(BATTERY_TOPIC, String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
 
   mqttClient.loop();
   
   yield();
   delay(100);
+  
+  dbprintln("Power off Sensor -  going to deep sleep");
+  digitalWrite(DHTPINPWR, LOW);
+  
   gotodeepsleep(sleepTimeS);
 }
 //*************** end main *****************************
@@ -69,7 +97,7 @@ void setup_wifi()
   would try to act as both a client and an access-point and could cause
   network-issues with your other WiFi-devices on your WiFi-network. */
   WiFi.mode(WIFI_STA);
-  WiFi.persistent(false);
+  WiFi.persistent(false); // do not store settings in EEPROM
   WiFi.hostname(DEFAULT_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));  
   WiFi.begin(DEFAULT_SSID, DEFAULT_PASSWORD);
   
@@ -94,7 +122,8 @@ void setup_wifi()
 
 void reconnect_mqtt()
 {
-  // Loop until door is closed
+  int fails = 0;
+  
   while (!mqttClient.connected())
   {
     dbprint("Attempting MQTT connection...");
@@ -109,9 +138,13 @@ void reconnect_mqtt()
       dbprint("failed, rc=");
       dbprint(mqttClient.state());
       dbprintln(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-//      delay(5000);
-      gotodeepsleep(5);
+      // Wait 1 second before retrying
+      delay(1000);
+      if(fails > 3)
+      {
+        gotodeepsleep(sleepTimeS);
+      }
+      fails++;
     }
   }
 }
@@ -125,6 +158,7 @@ void gotodeepsleep(int sleeptime)
     ESP.deepSleep(sleeptime*1e6,WAKE_RF_DEFAULT);
     yield();
     delay(100);
+    dbprintln("Debugging - only doing delay and reset");
 //    delay(sleeptime*1e3);
 //    ESP.reset();
   #else
