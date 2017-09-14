@@ -17,7 +17,7 @@ DHT dht(DHT_PIN, DHTTYPE);
 ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
 
 // *******SETUP*******
-// periodically check if door is open and go back to sleep, when open go to loop()
+// description..
 void setup()
 {
   dbserialbegin(74880);
@@ -45,15 +45,13 @@ void setup()
 //*************** end setup *****************************
 
 // *******LOOP*******
-// start wifi, connect mqtt and check if arm_topic is set, loop till door is closed again and publish "1" to reed_topic
-// when armed toggle buzzer, falling edge on button unarms, 5 times pressed ota is initiated
-// after door is closed publish "0" to reed_topic and batteryvoltage to battery_topic and go back to sleep
+// description..
 void loop()
 {
-  float hum=0.0;
-  float tem= 0.0;
-  bool sensor=true;
-  int last=millis()+100;
+  float humi=0.0;
+  float temp=0.0;
+  bool  sensor=true;
+  int   last=millis()+100;
   
   dbprint("Reading Sensor");
   do {
@@ -61,9 +59,9 @@ void loop()
     delay(10); // Delay between measurements
     // Reading temperature or humidity takes about 250 milliseconds!
     // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-    tem=dht.readTemperature();
-    hum=dht.readHumidity();
-    if(isnan(hum) || isnan(tem)) {
+    temp=dht.readTemperature();
+    humi=dht.readHumidity();
+    if(isnan(humi) || isnan(temp)) {
       sensor=false;
       if(last <= millis()) {
         dbprint(".");
@@ -75,7 +73,7 @@ void loop()
   dbprintln("DONE");
   
   mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
-  mqttClient.publish(HUM_TOPIC, String(hum).c_str(), false);
+  mqttClient.publish(HUM_TOPIC, String(humi).c_str(), false);
   mqttClient.publish(BATTERY_TOPIC, String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
 
   mqttClient.loop();
