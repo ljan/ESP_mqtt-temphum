@@ -11,7 +11,7 @@
 // MQTT-Topics
 #define TEMP_TOPIC        "sensor/val/temp"
 #define HUM_TOPIC         "sensor/val/hum"
-#define BATTERY_TOPIC     "sensor/stat/bat"
+#define BAT_TOPIC         "sensor/stat/bat"
 
 // Sensor
 #define DHT_TYPE          DHT22
