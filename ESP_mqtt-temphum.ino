@@ -17,7 +17,7 @@ DHT dht(DHT_PIN, DHT_TYPE);
 ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
 
 // *******SETUP*******
-/* description.. */
+/* Bootup, Power and Initialize DHT, Setup Wifi and MQTT */
 void setup() {
   dbserialbegin(74880);
   dbprintln("");
@@ -46,36 +46,42 @@ void setup() {
 // ******* end setup *******
 
 // *******LOOP*******
-/* description.. */
+/* Try to read Sensor for at leas 5 Seconds, send Results via MQTT, then go to Deep Sleep*/
 void loop() {
   float humi=0.0;
   float temp=0.0;
   bool  sensor=true;
-  int   last=millis()+100;
+  int   startreading=millis();
+  int   lastreading=millis()+100;
   
   dbprint("Reading Sensor");
   do {
     sensor=true;
-    delay(AttemptDelay);
     // Reading temperature or humidity takes about 250 milliseconds!
     // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
     temp=dht.readTemperature();
     humi=dht.readHumidity();
     if(isnan(humi) || isnan(temp)) {
       sensor=false;
-      if(last <= millis()) {
+      if(lastreading <= millis()) {
         dbprint(".");
-        last=millis()+100;
+        lastreading=millis()+100;
       }
+      delay(AttemptDelay);
     }
-  } while(!sensor && millis()<=10000);
-  last=millis();
+  } while(!sensor && (millis()-startreading)<=5000);
+  lastreading=millis();
   dbprintln("DONE");
   
   mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
   mqttClient.publish(HUM_TOPIC,  String(humi).c_str(), false);
   mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
-  //mqttClient.publish("sensor/stat/readtime", String(last).c_str(), false);
+  if (sensor) {
+    mqttClient.publish(TEL_TOPIC, String(lastreading).c_str(), false);
+  }
+  else {
+    mqttClient.publish(TEL_TOPIC, "Sensor Error", false);
+  }
 
   mqttClient.loop();
   yield();
