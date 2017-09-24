@@ -7,19 +7,18 @@
 #include "config.h"
 #include "debug.h"
 
-const int sleepTimeS = 15*60;       // Time in Seconds in Deep-Sleep between checks
+const int AttemptDelay = 10;        // Delay in ms between measurement attempts
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-DHT dht(DHT_PIN, DHTTYPE);
+DHT dht(DHT_PIN, DHT_TYPE);
 
 ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
 
 // *******SETUP*******
-// description..
-void setup()
-{
+/* description.. */
+void setup() {
   dbserialbegin(74880);
   dbprintln("");
   dbprintln("");
@@ -32,6 +31,8 @@ void setup()
   
   // DHT Setup
   dht.begin();
+  dht.readTemperature();  // first reading to initialize DHT
+  dht.readHumidity();
   
   // start wifi
   setup_wifi();
@@ -42,12 +43,11 @@ void setup()
   mqttClient.loop(); // This allows the client to maintain the connection and check for any incoming messages.
   yield();
 }
-//*************** end setup *****************************
+// ******* end setup *******
 
 // *******LOOP*******
-// description..
-void loop()
-{
+/* description.. */
+void loop() {
   float humi=0.0;
   float temp=0.0;
   bool  sensor=true;
@@ -56,7 +56,7 @@ void loop()
   dbprint("Reading Sensor");
   do {
     sensor=true;
-    delay(10); // Delay between measurements
+    delay(AttemptDelay);
     // Reading temperature or humidity takes about 250 milliseconds!
     // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
     temp=dht.readTemperature();
@@ -73,23 +73,22 @@ void loop()
   dbprintln("DONE");
   
   mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
-  mqttClient.publish(HUM_TOPIC, String(humi).c_str(), false);
-  mqttClient.publish(BATTERY_TOPIC, String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
+  mqttClient.publish(HUM_TOPIC,  String(humi).c_str(), false);
+  mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
+  //mqttClient.publish("sensor/stat/readtime", String(last).c_str(), false);
 
   mqttClient.loop();
-  
   yield();
   delay(100);
   
   dbprintln("Power off Sensor -  going to deep sleep");
   digitalWrite(DHT_PWR, LOW);
   
-  gotodeepsleep(sleepTimeS);
+  gotodeepsleep(SLEEP_TIME_S);
 }
-//*************** end main *****************************
+// ******* end main *******
 
-void setup_wifi()
-{
+void setup_wifi() {
   /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
   would try to act as both a client and an access-point and could cause
   network-issues with your other WiFi-devices on your WiFi-network. */
@@ -108,8 +107,7 @@ void setup_wifi()
   4 : WL_CONNECT_FAILED if password is incorrect
   6 : WL_DISCONNECTED if module is not configured in station mode
   Serial.printf( "Connection status: %d\n", WiFi.status() ); */
-  while(WiFi.status() != WL_CONNECTED)
-  {
+  while(WiFi.status() != WL_CONNECTED) {
     delay(200); // pauses the sketch for a given number of milliseconds and allows WiFi and TCP/IP tasks to run
     dbprint(".");
   }
@@ -117,28 +115,24 @@ void setup_wifi()
   dbprintln(WiFi.localIP());
 }
 
-void reconnect_mqtt()
-{
+void reconnect_mqtt() {
   int fails = 0;
   
-  while (!mqttClient.connected())
-  {
+  while (!mqttClient.connected()) {
     dbprint("Attempting MQTT connection...");
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (mqttClient.connect("ESP8266Client"))
-    if (mqttClient.connect(DEFAULT_HOSTNAME, MQTT_USER, MQTT_PASSWORD))
-    {
+    if (mqttClient.connect(DEFAULT_HOSTNAME, MQTT_USER, MQTT_PASSWORD)) {
       dbprintln("connected");
-    } else
-    {
+    }
+    else {
       dbprint("failed, rc=");
       dbprint(mqttClient.state());
       dbprintln(" try again in 5 seconds");
       // Wait 1 second before retrying
       delay(1000);
-      if(fails > 3)
-      {
+      if(fails > 3) {
         gotodeepsleep(sleepTimeS);
       }
       fails++;
@@ -146,20 +140,19 @@ void reconnect_mqtt()
   }
 }
 
-void gotodeepsleep(int sleeptime)
-{
+void gotodeepsleep(int sleeptime) {
 /*ESP.deepSleep(microseconds, mode) will put the chip into deep sleep.
   mode is one of WAKE_RF_DEFAULT, WAKE_RFCAL, WAKE_NO_RFCAL, WAKE_RF_DISABLED.
   (GPIO16 needs to be tied to RST to wake from deepSleep.)*/
   #ifdef DEBUG
-    ESP.deepSleep(sleeptime*1e6,WAKE_RF_DEFAULT);
+    ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
     yield();
     delay(100);
-    dbprintln("Debugging - only doing delay and reset");
+//    dbprintln("Debugging - only doing delay and reset");
 //    delay(sleeptime*1e3);
 //    ESP.reset();
   #else
-    ESP.deepSleep(sleeptime*1e6,WAKE_RF_DEFAULT);
+    ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
     yield();
     delay(100);
   #endif
