@@ -9,9 +9,10 @@
 #define MQTT_PASSWORD     "pwd"       // Enter Password for MQTT Connection
 
 // MQTT-Topics
-#define TEMP_TOPIC        "sensor/val/temp"
-#define HUM_TOPIC         "sensor/val/hum"
-#define BAT_TOPIC         "sensor/stat/bat"
+#define TEMP_TOPIC        "sensor/data/temperature"
+#define HUM_TOPIC         "sensor/data/humidity"
+#define BAT_TOPIC         "sensor/telemetry/battery"
+#define TEL_TOPIC         "sensor/telemetry/status"
 
 // Sensor
 #define DHT_TYPE          DHT22
