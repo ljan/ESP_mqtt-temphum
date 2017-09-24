@@ -1,7 +1,7 @@
 // Wifi-Setup
 #define DEFAULT_SSID      "ssid"      // Enter your network SSID
 #define DEFAULT_PASSWORD  "pwd"       // Enter your network WPA key
-#define DEFAULT_HOSTNAME  "maindoor"  // Enter your device friendly name
+#define DEFAULT_HOSTNAME  "tempsens"  // Enter your device friendly name
 
 // MQTT-Setup
 #define MQTT_SERVER       "server"    // Enter Hostname or IP of MQTT-Server
@@ -14,16 +14,17 @@
 #define BATTERY_TOPIC     "sensor/stat/bat"
 
 // Sensor
-#define DHTTYPE   DHT22
+#define DHT_TYPE          DHT22
+#define SLEEP_TIME_S      15*60       // Time in Seconds in Deep-Sleep between readings
 
 // ADC-Setup
-#define VCC_ADJ  1.000    // Adjust Voltage output of ADC to measured Voltage
+#define VCC_ADJ           1.000       // Adjust Voltage output of ADC to measured Voltage
 
 // Pin-Setup
 // GPIO15 low, GPIO0 high, GPIO2 high: boot sketch from flash (external 10k pull resistors)
 // GPIO16 must be connected to Reset for deep sleep
-#define DHT_PWR   13 // Power Sensor
-#define DHT_PIN   14 // Sensor Data
+#define DHT_PWR           13          // Sensor Power
+#define DHT_PIN           14          // Sensor Data
 
 // Debugging
-#define DEBUG       // not working on ESP-01 as UART-Pins are already in use
+//#define                 DEBUG       // not working on ESP-01 as UART-Pins are already in use
