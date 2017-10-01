@@ -24,7 +24,7 @@ char mqtt_server[40] = MQTT_SERVER;
 char mqtt_port[6] = MQTT_PORT;
 // default custom static IP
 char static_ip[16] = DEFAULT_IP;
-char static_gw[16] = DEFAULT_QG;
+char static_gw[16] = DEFAULT_GW;
 char static_sn[16] = DEFAULT_SN;
 
 
