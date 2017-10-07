@@ -205,7 +205,7 @@ void setup() {
   dbprintln();
   
   // setup mqtt
-  mqttClient.setServer(MQTT_SERVER, atoi(MQTT_PORT)); // parseInt to the port
+  mqttClient.setServer(mqtt_server, atoi(mqtt_port)); // parseInt to the port
   reconnect_mqtt();
   mqttClient.loop(); // This allows the client to maintain the connection and check for any incoming messages.
   yield();
