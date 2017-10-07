@@ -16,6 +16,7 @@
 
 // Sensor
 #define DHT_TYPE          DHT22
+//#define HTU_TYPE          HTU21
 #define SLEEP_TIME_S      15*60       // Time in Seconds in Deep-Sleep between readings
 
 // ADC-Setup
@@ -24,8 +25,10 @@
 // Pin-Setup
 // GPIO15 low, GPIO0 high, GPIO2 high: boot sketch from flash (external 10k pull resistors)
 // GPIO16 must be connected to Reset for deep sleep
-#define DHT_PWR           13          // Sensor Power
-#define DHT_PIN           14          // Sensor Data
+#define SENSOR_PWR        3           // Sensor Power
+#define DHT_PIN           13          // Sensor Data
+#define HTU_SDA           13          // Sensor SDA
+#define HTU_SCL           14          // Sensor SCL
 
 // Debugging
 //#define                 DEBUG       // not working on ESP-01 as UART-Pins are already in use

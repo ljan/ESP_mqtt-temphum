@@ -33,12 +33,12 @@ void setup() {
   dbprint("VCC: ");
   dbprintln(ESP.getVcc()*VCC_ADJ/1024.00f);
   
-  pinMode(DHT_PWR, OUTPUT);
-  digitalWrite(DHT_PWR, HIGH);
+  pinMode(SENSOR_PWR, OUTPUT);
+  digitalWrite(SENSOR_PWR, HIGH);
   
   // Sensor Setup
 #ifdef HTU_TYPE
-  Wire.begin(D6, D5); // custom i2c ports (SDA, SCL)
+  Wire.begin(HTU_SDA, HTU_SCL); // custom i2c ports (SDA, SCL)
 #endif
   mySensor.begin();
   mySensor.readTemperature();  // first reading to initialize DHT
@@ -100,7 +100,7 @@ void loop() {
   delay(100);
   
   dbprintln("Power off Sensor -  going to deep sleep");
-  digitalWrite(DHT_PWR, LOW);
+  digitalWrite(SENSOR_PWR, LOW);
   
   gotodeepsleep(SLEEP_TIME_S);
 }
