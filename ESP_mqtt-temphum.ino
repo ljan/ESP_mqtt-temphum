@@ -10,9 +10,19 @@
 
 // needed for Functionality
 #include <PubSubClient.h>         // MQTT Client
-#include "DHT.h"                  // Temperature Sensor
 #include "config.h"               // Config
 #include "debug.h"                // debugging
+
+#ifdef DHT_TYPE
+  #include "DHT.h"
+  DHT mySensor(DHT_PIN, DHT_TYPE);
+#endif
+
+#ifdef HTU_TYPE
+  #include <Wire.h>
+  #include "SparkFunHTU21D.h"
+  HTU21D mySensor;
+#endif
 
 // Config
 const int AttemptDelay = 10;      // Delay in ms between measurement attempts
@@ -39,8 +49,6 @@ void saveConfigCallback () {
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-DHT dht(DHT_PIN, DHT_TYPE);
-
 ADC_MODE(ADC_VCC);  // Read internal VCC rather than voltage on ADC pin (A0 must be floating)
 
 // *******SETUP*******
@@ -53,13 +61,16 @@ void setup() {
   dbprint("VCC: ");
   dbprintln(ESP.getVcc()*VCC_ADJ/1024.00f);
 
-  pinMode(DHT_PWR, OUTPUT);
-  digitalWrite(DHT_PWR, HIGH);
+  pinMode(SENSOR_PWR, OUTPUT);
+  digitalWrite(SENSOR_PWR, HIGH);
   
-  // DHT Setup
-  dht.begin();
-  dht.readTemperature();  // first reading to initialize DHT
-  dht.readHumidity();
+  // Sensor Setup
+#ifdef HTU_TYPE
+  Wire.begin(HTU_SDA, HTU_SCL); // custom i2c ports (SDA, SCL)
+#endif
+  mySensor.begin();
+  mySensor.readTemperature();  // first reading to initialize DHT
+  mySensor.readHumidity();
   
   //clean FS, for testing
   //SPIFFS.format();
@@ -194,7 +205,7 @@ void setup() {
   dbprintln();
   
   // setup mqtt
-  mqttClient.setServer(mqtt_server, atoi(mqtt_port)); // parseInt to the port
+  mqttClient.setServer(MQTT_SERVER, atoi(MQTT_PORT)); // parseInt to the port
   reconnect_mqtt();
   mqttClient.loop(); // This allows the client to maintain the connection and check for any incoming messages.
   yield();
@@ -206,33 +217,35 @@ void setup() {
 void loop() {
   float humi=0.0;
   float temp=0.0;
-  bool  sensor=true;
+  bool  readok=true;
   int   startreading=millis();
   int   lastreading=millis()+100;
   
   dbprint("Reading Sensor");
   do {
-    sensor=true;
+    readok=true;
     // Reading temperature or humidity takes about 250 milliseconds!
     // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-    temp=dht.readTemperature();
-    humi=dht.readHumidity();
+    temp=mySensor.readTemperature();
+    humi=mySensor.readHumidity();
     if(isnan(humi) || isnan(temp)) {
-      sensor=false;
+      readok=false;
       if(lastreading <= millis()) {
         dbprint(".");
         lastreading=millis()+100;
       }
       delay(AttemptDelay);
     }
-  } while(!sensor && (millis()-startreading)<=5000);
+  } while(!readok && (millis()-startreading)<=5000);
   lastreading=millis();
   dbprintln("DONE");
+  dbprint(temp); dbprint(" °C, ");
+  dbprint(humi); dbprintln(" % ");
   
   mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
   mqttClient.publish(HUM_TOPIC,  String(humi).c_str(), false);
   mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
-  if (sensor) {
+  if (readok) {
     mqttClient.publish(TEL_TOPIC, String(lastreading).c_str(), false);
   }
   else {
@@ -244,7 +257,7 @@ void loop() {
   delay(100);
   
   dbprintln("Power off Sensor -  going to deep sleep");
-  digitalWrite(DHT_PWR, LOW);
+  digitalWrite(SENSOR_PWR, LOW);
   
   gotodeepsleep(SLEEP_TIME_S);
 }
