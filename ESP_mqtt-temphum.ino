@@ -2,22 +2,29 @@
 
 #include <PubSubClient.h>
 
-#include "DHT.h"
-
 #include "config.h"
 #include "debug.h"
+
+#ifdef DHT_TYPE
+  #include "DHT.h"
+  DHT mySensor(DHT_PIN, DHT_TYPE);
+#endif
+
+#ifdef HTU_TYPE
+  #include <Wire.h>
+  #include "SparkFunHTU21D.h"
+  HTU21D mySensor;
+#endif
 
 const int AttemptDelay = 10;        // Delay in ms between measurement attempts
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-DHT dht(DHT_PIN, DHT_TYPE);
-
 ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
 
 // *******SETUP*******
-/* Bootup, Power and Initialize DHT, Setup Wifi and MQTT */
+/* Bootup, Power and Initialize Sensor, Setup Wifi and MQTT */
 void setup() {
   dbserialbegin(74880);
   dbprintln("");
@@ -25,14 +32,17 @@ void setup() {
   dbprintln("BOOT");
   dbprint("VCC: ");
   dbprintln(ESP.getVcc()*VCC_ADJ/1024.00f);
-
+  
   pinMode(DHT_PWR, OUTPUT);
   digitalWrite(DHT_PWR, HIGH);
   
-  // DHT Setup
-  dht.begin();
-  dht.readTemperature();  // first reading to initialize DHT
-  dht.readHumidity();
+  // Sensor Setup
+#ifdef HTU_TYPE
+  Wire.begin(D6, D5); // custom i2c ports (SDA, SCL)
+#endif
+  mySensor.begin();
+  mySensor.readTemperature();  // first reading to initialize DHT
+  mySensor.readHumidity();
   
   // start wifi
   setup_wifi();
@@ -50,33 +60,35 @@ void setup() {
 void loop() {
   float humi=0.0;
   float temp=0.0;
-  bool  sensor=true;
+  bool  readok=true;
   int   startreading=millis();
   int   lastreading=millis()+100;
   
-  dbprint("Reading Sensor");
+  dbprint("Reading Sensor: ");
   do {
-    sensor=true;
+    readok=true;
     // Reading temperature or humidity takes about 250 milliseconds!
     // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-    temp=dht.readTemperature();
-    humi=dht.readHumidity();
+    temp=mySensor.readTemperature();
+    humi=mySensor.readHumidity();
     if(isnan(humi) || isnan(temp)) {
-      sensor=false;
+      readok=false;
       if(lastreading <= millis()) {
         dbprint(".");
         lastreading=millis()+100;
       }
       delay(AttemptDelay);
     }
-  } while(!sensor && (millis()-startreading)<=5000);
+  } while(!readok && (millis()-startreading)<=5000);
   lastreading=millis();
   dbprintln("DONE");
+  dbprint(temp); dbprint(" °C, ");
+  dbprint(humi); dbprintln(" % ");
   
   mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
   mqttClient.publish(HUM_TOPIC,  String(humi).c_str(), false);
   mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
-  if (sensor) {
+  if (readok) {
     mqttClient.publish(TEL_TOPIC, String(lastreading).c_str(), false);
   }
   else {
