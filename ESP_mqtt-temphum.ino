@@ -139,7 +139,7 @@ void reconnect_mqtt() {
       // Wait 1 second before retrying
       delay(1000);
       if(fails > 3) {
-        gotodeepsleep(sleepTimeS);
+        gotodeepsleep(SLEEP_TIME_S);
       }
       fails++;
     }
