@@ -32,7 +32,14 @@ const int AttemptDelay = 10;      // Delay in ms between measurement attempts
 // length should be max size + 1 
 char mqtt_server[40] = MQTT_SERVER;
 char mqtt_port[6] = MQTT_PORT;
+char mqtt_user[40] = MQTT_USER;
+char mqtt_password[40] = MQTT_PASSWORD;
+char temp_topic[40] = TEMP_TOPIC;
+char hum_topic[40] = HUM_TOPIC;
+char bat_topic[40] = BAT_TOPIC;
+char tel_topic[40] = TEL_TOPIC;
 // default custom static IP
+char static_hostname[40] = DEFAULT_HOSTNAME;
 char static_ip[16] = DEFAULT_IP;
 char static_gw[16] = DEFAULT_GW;
 char static_sn[16] = DEFAULT_SN;
@@ -61,6 +68,7 @@ void setup() {
   dbprint("VCC: ");
   dbprintln(ESP.getVcc()*VCC_ADJ/1024.00f);
 
+  // Sensor Powerup
   pinMode(SENSOR_PWR, OUTPUT);
   digitalWrite(SENSOR_PWR, HIGH);
   
@@ -242,14 +250,14 @@ void loop() {
   dbprint(temp); dbprint(" °C, ");
   dbprint(humi); dbprintln(" % ");
   
-  mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
-  mqttClient.publish(HUM_TOPIC,  String(humi).c_str(), false);
-  mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
+  mqttClient.publish(temp_topic, String(temp).c_str(), false);
+  mqttClient.publish(hum_topic,  String(humi).c_str(), false);
+  mqttClient.publish(bat_topic,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
   if (readok) {
-    mqttClient.publish(TEL_TOPIC, String(lastreading).c_str(), false);
+    mqttClient.publish(tel_topic, String(lastreading).c_str(), false);
   }
   else {
-    mqttClient.publish(TEL_TOPIC, "Sensor Error", false);
+    mqttClient.publish(tel_topic, "Sensor Reading Error", false);
   }
 
   mqttClient.loop();
@@ -269,7 +277,7 @@ void setup_wifi() {
   network-issues with your other WiFi-devices on your WiFi-network. */
   WiFi.mode(WIFI_STA);
   WiFi.persistent(false); // do not store settings in EEPROM
-  WiFi.hostname(DEFAULT_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));  
+  WiFi.hostname(static_hostname + String("-") + String(ESP.getChipId(), HEX));  
   WiFi.begin(DEFAULT_SSID, DEFAULT_PASSWORD);
   
   dbprint("Connecting to ");
@@ -298,7 +306,7 @@ void reconnect_mqtt() {
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (mqttClient.connect("ESP8266Client"))
-    if (mqttClient.connect(DEFAULT_HOSTNAME, MQTT_USER, MQTT_PASSWORD)) {
+    if (mqttClient.connect(static_hostname, mqtt_user, mqtt_password)) {
       dbprintln("connected");
     }
     else {
