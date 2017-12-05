@@ -129,7 +129,7 @@ void setup_wifi() {
     delay(200); // pauses the sketch for a given number of milliseconds and allows WiFi and TCP/IP tasks to run
     dbprint(".");
   }
-  dbprint("WiFi connected, IP address: ");
+  dbprint("\nWiFi connected, IP address: ");
   dbprintln(WiFi.localIP());
 }
 
