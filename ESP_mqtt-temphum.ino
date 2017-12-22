@@ -77,8 +77,10 @@ void setup() {
   Wire.begin(HTU_SDA, HTU_SCL); // custom i2c ports (SDA, SCL)
 #endif
   mySensor.begin();
+#ifdef DHT_TYPE
   mySensor.readTemperature();  // first reading to initialize DHT
   mySensor.readHumidity();
+#endif
   
   //clean FS, for testing
   //SPIFFS.format();
