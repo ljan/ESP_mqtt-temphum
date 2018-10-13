@@ -17,6 +17,7 @@
 // Sensor
 #define DHT_TYPE          DHT22
 //#define HTU_TYPE          HTU21
+//#define BME_TYPE          BME280
 #define SLEEP_TIME_S      15*60       // Time in Seconds in Deep-Sleep between readings
 
 // ADC-Setup
@@ -29,6 +30,13 @@
 #define DHT_PIN           13          // Sensor Data
 #define HTU_SDA           13          // Sensor SDA
 #define HTU_SCL           14          // Sensor SCL
+//#define BME_SCL           4           // BME SCL I2C
+//#define BME_SDA           5           // BME SDA I2C
+#define BME_CS            4           // BME CS SPI   (Sensor Label CSB)
+#define BME_MOSI          13          // BME MOSI SPI (Sensor Label SDA)
+#define BME_MISO          12          // BME MISO SPI (Sensor Label SDO)
+#define BME_SCK           14          // BME SCK SPI  (Sensor Label SCL)
 
 // Debugging
-//#define                 DEBUG       // not working on ESP-01 as UART-Pins are already in use
+//#define DEBUG       // comment out on normal usage
+                      // not working on ESP-01 as UART-Pins are already in use

@@ -6,14 +6,25 @@
 #include "debug.h"
 
 #ifdef DHT_TYPE
-  #include "DHT.h"
+  #include <Adafruit_Sensor.h>
+  #include <DHT.h>
+  #include <DHT_U.h>
   DHT mySensor(DHT_PIN, DHT_TYPE);
 #endif
 
 #ifdef HTU_TYPE
   #include <Wire.h>
-  #include "SparkFunHTU21D.h"
+  #include <SparkFunHTU21D.h>
   HTU21D mySensor;
+#endif
+
+#ifdef BME_TYPE
+  #include <Wire.h>
+  #include <SPI.h>
+  #include <Adafruit_Sensor.h>
+  #include <Adafruit_BME280.h>
+  //Adafruit_BME280 mySensor; // I2C
+  Adafruit_BME280 mySensor(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI;
 #endif
 
 const int AttemptDelay = 10;        // Delay in ms between measurement attempts
@@ -40,6 +51,9 @@ void setup() {
 #ifdef HTU_TYPE
   Wire.begin(HTU_SDA, HTU_SCL); // custom i2c ports (SDA, SCL)
 #endif
+#ifdef BME_SDA
+  Wire.begin(BME_SDA, BME_SCL); // custom i2c ports (SDA, SCL)
+#endif
   mySensor.begin();
   mySensor.readTemperature();  // first reading to initialize DHT
   mySensor.readHumidity();
@@ -60,17 +74,21 @@ void setup() {
 void loop() {
   float humi=0.0;
   float temp=0.0;
+  float pres=0.0;
   bool  readok=true;
   int   startreading=millis();
   int   lastreading=millis()+100;
   
   dbprint("Reading Sensor: ");
-  do {
+  do { // read sensore while read is not ok or 5s have not elapsed
     readok=true;
     // Reading temperature or humidity takes about 250 milliseconds!
     // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
     temp=mySensor.readTemperature();
     humi=mySensor.readHumidity();
+    #ifdef BME_TYPE
+      pres = mySensor.readPressure() / 100.0F;  // hPa
+    #endif
     if(isnan(humi) || isnan(temp)) {
       readok=false;
       if(lastreading <= millis()) {
@@ -81,12 +99,22 @@ void loop() {
     }
   } while(!readok && (millis()-startreading)<=5000);
   lastreading=millis();
+
+  //debugging output
   dbprintln("DONE");
-  dbprint(temp); dbprint(" °C, ");
-  dbprint(humi); dbprintln(" % ");
-  
+  dbprint(temp); dbprint(" °C ");
+  dbprint(humi); dbprint(" % ");
+  #ifdef BME_TYPE
+    dbprint(pres); dbprint(" hPa ");
+  #endif
+  dbprintln();
+
+  // publish
   mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
   mqttClient.publish(HUM_TOPIC,  String(humi).c_str(), false);
+  #ifdef BME_TYPE
+    mqttClient.publish(PRES_TOPIC,  String(pres).c_str(), false);
+  #endif
   mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
   if (readok) {
     mqttClient.publish(TEL_TOPIC, String(lastreading).c_str(), false);
