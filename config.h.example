@@ -15,27 +15,28 @@
 #define TEL_TOPIC         "sensor/telemetry/status"
 
 // Sensor
-#define DHT_TYPE          DHT22
-//#define HTU_TYPE          HTU21
-//#define BME_TYPE          BME280
+#define SENSOR_TYPE DHT22 // DHT22 HTU21 BME280_SPI BME280_I2S
 #define SLEEP_TIME_S      15*60       // Time in Seconds in Deep-Sleep between readings
 
 // ADC-Setup
 #define VCC_ADJ           1.000       // Adjust Voltage output of ADC to measured Voltage
 
 // Pin-Setup
-// GPIO15 low, GPIO0 high, GPIO2 high: boot sketch from flash (external 10k pull resistors)
-// GPIO16 must be connected to Reset for deep sleep
 #define SENSOR_PWR        3           // Sensor Power
+
 #define DHT_PIN           13          // Sensor Data
-#define HTU_SDA           13          // Sensor SDA
-#define HTU_SCL           14          // Sensor SCL
-//#define BME_SCL           4           // BME SCL I2C
-//#define BME_SDA           5           // BME SDA I2C
-#define BME_CS            4           // BME CS SPI   (Sensor Label CSB)
-#define BME_MOSI          13          // BME MOSI SPI (Sensor Label SDA)
-#define BME_MISO          12          // BME MISO SPI (Sensor Label SDO)
-#define BME_SCK           14          // BME SCK SPI  (Sensor Label SCL)
+
+#define SDA_PIN           13          // SDA
+#define SCL_PIN           14          // SCL
+
+#define CS_PIN            4           // BME CS SPI   (Sensor Label CSB)
+#define MOSI_PIN          13          // BME MOSI SPI (Sensor Label SDA)
+#define MISO_PIN          12          // BME MISO SPI (Sensor Label SDO)
+#define SCK_PIN           14          // BME SCK SPI  (Sensor Label SCL)
+
+// GPIO15 low, GPIO0 high, GPIO2 high: boot sketch from flash (external 10k pull resistors)
+// Flash: GPIO0 low
+// GPIO16 must be connected to Reset for deep sleep
 
 // Debugging
 //#define DEBUG       // comment out on normal usage
