@@ -58,11 +58,54 @@ void setup() {
   mySensor.readHumidity();
 #endif
   
-  // start wifi
-  setup_wifi();
+  //sets timeout until configuration portal gets turned off
+  //useful to make it all retry or go to sleep
+  //in seconds
+  wifiManager.setTimeout(180);
+
+  //fetches ssid and pass and tries to connect
+  //if it does not connect it starts an access point with the specified name
+  //here  "AutoConnectAP"
+  //and goes into a blocking loop awaiting configuration
+  if (!wifiManager.autoConnect()) {
+    dbprintln("failed to connect and hit timeout");
+    delay(3000);
+    //reset and try again, or maybe put it to deep sleep
+    gotodeepsleep(SLEEP_TIME_S);
+  }
+  //if you get here you have connected to the WiFi
+  dbprintln("connected...yeey :)");
+  
+  //read updated parameters
+  strcpy(mqtt_server, custom_mqtt_server.getValue());
+  strcpy(mqtt_port, custom_mqtt_port.getValue());
+
+  //save the custom parameters to FS
+  if (shouldSaveConfig) {
+    dbprintln("saving config");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    json["mqtt_server"] = mqtt_server;
+    json["mqtt_port"] = mqtt_port;
+
+    json["ip"] = WiFi.localIP().toString();
+    json["gateway"] = WiFi.gatewayIP().toString();
+    json["subnet"] = WiFi.subnetMask().toString();
+
+    File configFile = SPIFFS.open("/config.json", "w");
+    if (!configFile) {
+      dbprintln("failed to open config file for writing");
+    }
+
+    json.prettyPrintTo(Serial);
+    json.printTo(configFile);
+    configFile.close();
+    //end save
+  }
+  dbprintln();
   
   // setup mqtt
-  mqttClient.setServer(MQTT_SERVER, 1883);
+  mqttClient.setServer(mqtt_server, atoi(mqtt_port)); // parseInt to the port
   reconnect_mqtt();
   mqttClient.loop(); // This allows the client to maintain the connection and check for any incoming messages.
   yield();
@@ -118,7 +161,7 @@ void loop() {
     mqttClient.publish(TEL_TOPIC, String(lastreading).c_str(), false);
   }
   else {
-    mqttClient.publish(TEL_TOPIC, "Sensor Error", false);
+    mqttClient.publish(tel_topic, "Sensor Reading Error", false);
   }
   mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
   
@@ -132,7 +175,7 @@ void setup_wifi() {
   network-issues with your other WiFi-devices on your WiFi-network. */
   WiFi.mode(WIFI_STA);
   WiFi.persistent(false); // do not store settings in EEPROM
-  WiFi.hostname(DEFAULT_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));  
+  WiFi.hostname(static_hostname + String("-") + String(ESP.getChipId(), HEX));  
   WiFi.begin(DEFAULT_SSID, DEFAULT_PASSWORD);
   
   dbprint("Connecting to ");
@@ -162,7 +205,7 @@ void reconnect_mqtt() {
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (mqttClient.connect("ESP8266Client"))
-    if (mqttClient.connect(DEFAULT_HOSTNAME, MQTT_USER, MQTT_PASSWORD)) {
+    if (mqttClient.connect(static_hostname, mqtt_user, mqtt_password)) {
       dbprintln("connected");
     }
     else {
