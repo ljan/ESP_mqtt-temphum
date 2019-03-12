@@ -81,6 +81,7 @@ void loop() {
   
   dbprint("Reading Sensor: ");
   do { // read sensore while read is not ok or 5s have not elapsed
+    dbprint(". ");
     temp=mySensor.readTemperature();
     humi=mySensor.readHumidity();
     #if SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
