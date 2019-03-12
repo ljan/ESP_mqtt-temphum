@@ -2,14 +2,9 @@
 #define DEFAULT_SSID      "ssid"      // Enter your network SSID
 #define DEFAULT_PASSWORD  "pwd"       // Enter your network WPA key
 #define DEFAULT_HOSTNAME  "tempsens"  // Enter your device friendly name
-// Static IP
-#define DEFAULT_IP         "192.168.0.90"
-#define DEFAULT_GW         "192.168.0.1"
-#define DEFAULT_SN         "255.255.255.0"
 
 // MQTT-Setup
 #define MQTT_SERVER       "server"    // Enter Hostname or IP of MQTT-Server
-#define MQTT_PORT         "1883"
 #define MQTT_USER         "user"      // Enter Username for MQTT Connection
 #define MQTT_PASSWORD     "pwd"       // Enter Password for MQTT Connection
 
