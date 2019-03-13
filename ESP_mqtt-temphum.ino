@@ -10,22 +10,35 @@
 
 // needed for Functionality
 #include <PubSubClient.h>         // MQTT Client
-#include "config.h"               // Config
+#include "config.h"               // config
 #include "debug.h"                // debugging
 
-#ifdef DHT_TYPE
-  #include "DHT.h"
-  DHT mySensor(DHT_PIN, DHT_TYPE);
-#endif
-
-#ifdef HTU_TYPE
+#if SENSOR_TYPE == DHT22
+  #include <Adafruit_Sensor.h>
+  #include <DHT.h>
+  #include <DHT_U.h>
+  DHT mySensor(DHT_PIN, SENSOR_TYPE);
+#elif SENSOR_TYPE == HTU21
   #include <Wire.h>
-  #include "SparkFunHTU21D.h"
+  #include <SparkFunHTU21D.h>
   HTU21D mySensor;
+#elif SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
+  #include <Wire.h>
+  #include <SPI.h>
+  #include <Adafruit_Sensor.h>
+  #include <Adafruit_BME280.h>
+  #if SENSOR_TYPE == BME280_I2C
+    Adafruit_BME280 mySensor; // I2C
+  #elif SENSOR_TYPE == BME280_SPI
+    Adafruit_BME280 mySensor(CS_PIN, MOSI_PIN, MISO_PIN, SCK_PIN); // software SPI;
+  #endif
+#else
+  
 #endif
 
-// Config
-const int AttemptDelay = 10;      // Delay in ms between measurement attempts
+
+const int attemptDelay = 100;   // Delay in ms between measurement attempts
+const int attemptMax = 5000;    // Max ms for attempts
 
 // Data to go into FS
 // define your default values here, if there are different values in config.json, they are overwritten.
@@ -36,6 +49,7 @@ char mqtt_user[40] = MQTT_USER;
 char mqtt_password[40] = MQTT_PASSWORD;
 char temp_topic[40] = TEMP_TOPIC;
 char hum_topic[40] = HUM_TOPIC;
+char pres_topic[40] = PRES_TOPIC;
 char bat_topic[40] = BAT_TOPIC;
 char tel_topic[40] = TEL_TOPIC;
 // default custom static IP
@@ -59,7 +73,7 @@ PubSubClient mqttClient(espClient);
 ADC_MODE(ADC_VCC);  // Read internal VCC rather than voltage on ADC pin (A0 must be floating)
 
 // *******SETUP*******
-/* Bootup, Power and Initialize DHT, Setup Wifi and MQTT */
+/* Bootup, Power and Initialize Sensor, Setup Wifi and MQTT */
 void setup() {
   dbserialbegin(74880);
   dbprintln("");
@@ -73,11 +87,11 @@ void setup() {
   digitalWrite(SENSOR_PWR, HIGH);
   
   // Sensor Setup
-#ifdef HTU_TYPE
-  Wire.begin(HTU_SDA, HTU_SCL); // custom i2c ports (SDA, SCL)
+#if SENSOR_TYPE == HTU21 || SENSOR_TYPE == BME280_I2C
+  Wire.begin(SDA_PIN, SCL_PIN); // custom i2c ports (SDA, SCL)
 #endif
   mySensor.begin();
-#ifdef DHT_TYPE
+#if SENSOR_TYPE == DHT22
   mySensor.readTemperature();  // first reading to initialize DHT
   mySensor.readHumidity();
 #endif
@@ -227,47 +241,53 @@ void setup() {
 void loop() {
   float humi=0.0;
   float temp=0.0;
-  bool  readok=true;
+  float pres=0.0;
+  bool  readok=false;
   int   startreading=millis();
   int   lastreading=millis()+100;
   
-  dbprint("Reading Sensor");
-  do {
-    readok=true;
-    // Reading temperature or humidity takes about 250 milliseconds!
-    // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  dbprint("Reading Sensor: ");
+  do { // read sensore while read is not ok or 5s have not elapsed
     temp=mySensor.readTemperature();
     humi=mySensor.readHumidity();
+    #if SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
+      pres = mySensor.readPressure() / 100.0F;  // hPa
+    #endif
     if(isnan(humi) || isnan(temp)) {
       readok=false;
       if(lastreading <= millis()) {
-        dbprint(".");
+        dbprint(". ");
         lastreading=millis()+100;
       }
-      delay(AttemptDelay);
+      delay(attemptDelay);
+    } else {
+      readok=true;
     }
-  } while(!readok && (millis()-startreading)<=5000);
+  } while(!readok && (millis()-startreading) <= attemptMax);
   lastreading=millis();
+
+  //debugging output
   dbprintln("DONE");
-  dbprint(temp); dbprint(" °C, ");
-  dbprint(humi); dbprintln(" % ");
-  
-  mqttClient.publish(temp_topic, String(temp).c_str(), false);
-  mqttClient.publish(hum_topic,  String(humi).c_str(), false);
-  mqttClient.publish(bat_topic,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
+  dbprint(temp); dbprint(" °C ");
+  dbprint(humi); dbprint(" % ");
+  #if SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
+    dbprint(pres); dbprint(" hPa ");
+  #endif
+  dbprintln();
+
+  // publish
   if (readok) {
+    mqttClient.publish(temp_topic, String(temp).c_str(), false);
+    mqttClient.publish(hum_topic,  String(humi).c_str(), false);
+  #if SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
+    mqttClient.publish(pres_topic,  String(pres).c_str(), false);
+  #endif
     mqttClient.publish(tel_topic, String(lastreading).c_str(), false);
   }
   else {
-    mqttClient.publish(tel_topic, "Sensor Reading Error", false);
+    mqttClient.publish(tel_topic, "Sensor Error", false);
   }
-
-  mqttClient.loop();
-  yield();
-  delay(100);
-  
-  dbprintln("Power off Sensor -  going to deep sleep");
-  digitalWrite(SENSOR_PWR, LOW);
+  mqttClient.publish(bat_topic,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
   
   gotodeepsleep(SLEEP_TIME_S);
 }
@@ -301,6 +321,7 @@ void setup_wifi() {
 }
 
 void reconnect_mqtt() {
+  /* Reconnect to MQTT Server */
   int fails = 0;
   
   while (!mqttClient.connected()) {
@@ -318,7 +339,7 @@ void reconnect_mqtt() {
       // Wait 1 second before retrying
       delay(1000);
       if(fails > 3) {
-        gotodeepsleep(SLEEP_TIME_S);
+        gotodeepsleep(SLEEP_TIME_S*4);
       }
       fails++;
     }
@@ -329,17 +350,16 @@ void gotodeepsleep(int sleeptime) {
 /*ESP.deepSleep(microseconds, mode) will put the chip into deep sleep.
   mode is one of WAKE_RF_DEFAULT, WAKE_RFCAL, WAKE_NO_RFCAL, WAKE_RF_DISABLED.
   (GPIO16 needs to be tied to RST to wake from deepSleep.)*/
+  dbprintln("Power off Sensor -  going to deep sleep");
+  digitalWrite(SENSOR_PWR, LOW);
+  
+  mqttClient.loop();
+  yield();
+  delay(100);
   #ifdef DEBUG
     ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
-    yield();
-    delay(100);
-//    dbprintln("Debugging - only doing delay and reset");
-//    delay(sleeptime*1e3);
-//    ESP.reset();
   #else
     ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
-    yield();
-    delay(100);
   #endif
 }
 
