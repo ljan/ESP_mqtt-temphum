@@ -4,23 +4,23 @@
 #include "config.h"
 #include "debug.h"
 
-#if SENSOR_TYPE == DHT22
+#if SENSOR_TYPE == 'DHT22'
   #include <Adafruit_Sensor.h>
   #include <DHT.h>
   #include <DHT_U.h>
   DHT mySensor(DHT_PIN, SENSOR_TYPE);
-#elif SENSOR_TYPE == HTU21
+#elif SENSOR_TYPE == 'HTU21'
   #include <Wire.h>
   #include <SparkFunHTU21D.h>
   HTU21D mySensor;
-#elif SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
+#elif SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
   #include <Wire.h>
   #include <SPI.h>
   #include <Adafruit_Sensor.h>
   #include <Adafruit_BME280.h>
-  #if SENSOR_TYPE == BME280_I2C
+  #if SENSOR_TYPE == 'BME280_I2C'
     Adafruit_BME280 mySensor; // I2C
-  #elif SENSOR_TYPE == BME280_SPI
+  #elif SENSOR_TYPE == 'BME280_SPI'
     Adafruit_BME280 mySensor(CS_PIN, MOSI_PIN, MISO_PIN, SCK_PIN); // software SPI;
   #endif
 #else
@@ -49,11 +49,11 @@ void setup() {
   digitalWrite(SENSOR_PWR, HIGH);
   
   // Sensor Setup
-#if SENSOR_TYPE == HTU21 || SENSOR_TYPE == BME280_I2C
+#if SENSOR_TYPE == 'HTU21' || SENSOR_TYPE == 'BME280_I2C'
   Wire.begin(SDA_PIN, SCL_PIN); // custom i2c ports (SDA, SCL)
 #endif
   mySensor.begin();
-#if SENSOR_TYPE == DHT22
+#if SENSOR_TYPE == 'DHT22'
   mySensor.readTemperature();  // first reading to initialize DHT
   mySensor.readHumidity();
 #endif
@@ -84,7 +84,7 @@ void loop() {
     dbprint(". ");
     temp=mySensor.readTemperature();
     humi=mySensor.readHumidity();
-    #if SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
+    #if SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
       pres = mySensor.readPressure() / 100.0F;  // hPa
     #endif
     if(isnan(humi) || isnan(temp)) {
@@ -104,7 +104,7 @@ void loop() {
   dbprintln("DONE");
   dbprint(temp); dbprint(" °C ");
   dbprint(humi); dbprint(" % ");
-  #if SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
+  #if SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
     dbprint(pres); dbprint(" hPa ");
   #endif
   dbprintln();
@@ -113,7 +113,7 @@ void loop() {
   if (readok) {
     mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
     mqttClient.publish(HUM_TOPIC,  String(humi).c_str(), false);
-  #if SENSOR_TYPE == BME280_I2C || SENSOR_TYPE == BME280_SPI
+  #if SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
     mqttClient.publish(PRES_TOPIC,  String(pres).c_str(), false);
   #endif
     mqttClient.publish(TEL_TOPIC, String(lastreading).c_str(), false);

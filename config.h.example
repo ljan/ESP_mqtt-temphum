@@ -11,11 +11,12 @@
 // MQTT-Topics
 #define TEMP_TOPIC        "sensor/data/temperature"
 #define HUM_TOPIC         "sensor/data/humidity"
+#define PRES_TOPIC        "sensor/data/pressure"
 #define BAT_TOPIC         "sensor/telemetry/battery"
 #define TEL_TOPIC         "sensor/telemetry/status"
 
 // Sensor
-#define SENSOR_TYPE DHT22 // DHT22 HTU21 BME280_SPI BME280_I2S
+#define SENSOR_TYPE       'DHT22' // DHT22 HTU21 BME280_SPI BME280_I2S
 #define SLEEP_TIME_S      15*60       // Time in Seconds in Deep-Sleep between readings
 
 // ADC-Setup
@@ -24,7 +25,7 @@
 // Pin-Setup
 #define SENSOR_PWR        3           // Sensor Power
 
-#define DHT_PIN           13          // Sensor Data
+#define DHT_PIN           13          // DHT Data
 
 #define SDA_PIN           13          // SDA
 #define SCL_PIN           14          // SCL
