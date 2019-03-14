@@ -195,6 +195,9 @@ void gotodeepsleep(int sleeptime) {
   #else
     ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
   #endif
+  
+  yield();
+  delay(100);
 }
 
 // EOF
