@@ -62,7 +62,7 @@ void setup() {
   setup_wifi();
   
   // setup mqtt
-  mqttClient.setServer(MQTT_SERVER, 1883);
+  mqttClient.setServer(MQTT_SERVER, atoi(MQTT_PORT));
   reconnect_mqtt();
   mqttClient.loop(); // This allows the client to maintain the connection and check for any incoming messages.
   yield();
