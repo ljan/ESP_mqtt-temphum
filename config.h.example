@@ -3,6 +3,11 @@
 #define DEFAULT_PASSWORD  "pwd"       // Enter your network WPA key
 #define DEFAULT_HOSTNAME  "tempsens"  // Enter your device friendly name
 
+// Static IP - optional, comment out if not needed
+#define WIFI_IP         192,168,1,123
+#define WIFI_GW         192,168,1,1
+#define WIFI_SN         255,255,255,0
+
 // MQTT-Setup
 #define MQTT_SERVER       "server"    // Enter Hostname or IP of MQTT-Server
 #define MQTT_USER         "user"      // Enter Username for MQTT Connection
@@ -23,7 +28,7 @@
 #define VCC_ADJ           1.000       // Adjust Voltage output of ADC to measured Voltage
 
 // Pin-Setup
-#define SENSOR_PWR        3           // Sensor Power
+#define SENSOR_PWR        4           // Sensor Power
 
 #define DHT_PIN           13          // DHT Data
 

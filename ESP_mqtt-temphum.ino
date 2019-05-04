@@ -27,6 +27,12 @@
   
 #endif
 
+#ifdef WIFI_IP && WIFI_GW && WIFI_SN
+  IPAddress wifi_ip(WIFI_IP);
+  IPAddress wifi_gw(WIFI_GW);
+  IPAddress wifi_sn(WIFI_SN);
+#endif
+
 const int attemptDelay = 100;   // Delay in ms between measurement attempts
 const int attemptMax = 5000;    // Max ms for attempts
 
@@ -34,6 +40,7 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
+
 
 // *******SETUP*******
 /* Bootup, Power and Initialize Sensor, Setup Wifi and MQTT */
@@ -72,25 +79,24 @@ void setup() {
 // *******LOOP*******
 /* Try to read Sensor for at leas 5 Seconds, send Results via MQTT, then go to Deep Sleep*/
 void loop() {
-  float humi=0.0;
-  float temp=0.0;
-  float pres=0.0;
+  float humi=0.0f;
+  float temp=0.0f;
+  float pres=0.0f;
   bool  readok=false;
   int   startreading=millis();
   int   lastreading=millis()+100;
   
   dbprint("Reading Sensor: ");
   do { // read sensore while read is not ok or 5s have not elapsed
-    dbprint(". ");
     temp=mySensor.readTemperature();
     humi=mySensor.readHumidity();
     #if SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
-      pres = mySensor.readPressure() / 100.0F;  // hPa
+      pres = mySensor.readPressure() / 100.0f;  // hPa
     #endif
     if(isnan(humi) || isnan(temp)) {
       readok=false;
       if(lastreading <= millis()) {
-        dbprint(".");
+        dbprint(". ");
         lastreading=millis()+100;
       }
       delay(attemptDelay);
@@ -128,16 +134,18 @@ void loop() {
 // ******* end main *******
 
 void setup_wifi() {
-  /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
-  would try to act as both a client and an access-point and could cause
-  network-issues with your other WiFi-devices on your WiFi-network. */
-  WiFi.mode(WIFI_STA);
+  //WiFi.setAutoConnect(false); // not working by its own
+  //WiFi.disconnect(); // prevent connecting to wifi based on previous configuration
+  WiFi.mode(WIFI_STA); // explicitly set the ESP8266 to be a WiFi-client
   WiFi.persistent(false); // do not store settings in EEPROM
-  WiFi.hostname(DEFAULT_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));  
-  WiFi.begin(DEFAULT_SSID, DEFAULT_PASSWORD);
+  WiFi.hostname(WIFI_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));
+  #ifdef WIFI_IP && WIFI_GW && WIFI_SN
+    WiFi.config(wifi_ip, wifi_gw, wifi_sn);
+  #endif
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
   dbprint("Connecting to ");
-  dbprint(DEFAULT_SSID);
+  dbprint(WIFI_SSID);
 
   /* This function returns following codes to describe what is going on with Wi-Fi connection: 
   0 : WL_IDLE_STATUS when Wi-Fi is in process of changing between statuses
@@ -163,7 +171,7 @@ void reconnect_mqtt() {
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (mqttClient.connect("ESP8266Client"))
-    if (mqttClient.connect(DEFAULT_HOSTNAME, MQTT_USER, MQTT_PASSWORD)) {
+    if (mqttClient.connect(WIFI_HOSTNAME, MQTT_USER, MQTT_PASSWORD)) {
       dbprintln("connected");
     }
     else {
