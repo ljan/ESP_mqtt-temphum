@@ -19,9 +19,9 @@
   #include <Adafruit_Sensor.h>
   #include <Adafruit_BME280.h>
   #if SENSOR_TYPE == 'BME280_I2C'
-    Adafruit_BME280 mySensor; // I2C
+    Adafruit_BME280 mySensor;
   #elif SENSOR_TYPE == 'BME280_SPI'
-    Adafruit_BME280 mySensor(CS_PIN, MOSI_PIN, MISO_PIN, SCK_PIN); // software SPI;
+    Adafruit_BME280 mySensor(CS_PIN, MOSI_PIN, MISO_PIN, SCK_PIN);
   #endif
 #else
   
@@ -31,10 +31,11 @@
   IPAddress wifi_ip(WIFI_IP);
   IPAddress wifi_gw(WIFI_GW);
   IPAddress wifi_sn(WIFI_SN);
+  IPAddress wifi_dns(WIFI_DNS);
 #endif
 
 const int attemptDelay = 100;   // Delay in ms between measurement attempts
-const int attemptMax = 5000;    // Max ms for attempts
+const int attemptMax = 5000;    // Max ms for attempts (Sensor, WiFi, MQTT)
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -43,27 +44,25 @@ ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must
 
 
 // *******SETUP*******
-/* Bootup, Power and Initialize Sensor, Setup Wifi and MQTT */
 void setup() {
+/* Bootup, Power and Initialize Sensor, Setup Wifi and MQTT */
   dbserialbegin(74880);
-  dbprintln("");
-  dbprintln("");
+  dbprintln(""); dbprintln("");
   dbprintln("BOOT");
-  dbprint("VCC: ");
-  dbprintln(ESP.getVcc()*VCC_ADJ/1024.00f);
+  dbprint("VCC: "); dbprintln(ESP.getVcc()*VCC_ADJ/1024.0f);
   
+  // Sensor Setup
   pinMode(SENSOR_PWR, OUTPUT);
   digitalWrite(SENSOR_PWR, HIGH);
   
-  // Sensor Setup
-#if SENSOR_TYPE == 'HTU21' || SENSOR_TYPE == 'BME280_I2C'
-  Wire.begin(SDA_PIN, SCL_PIN); // custom i2c ports (SDA, SCL)
-#endif
+  #if SENSOR_TYPE == 'HTU21' || SENSOR_TYPE == 'BME280_I2C'
+    Wire.begin(SDA_PIN, SCL_PIN); // custom i2c ports (SDA, SCL)
+  #endif
   mySensor.begin();
-#if SENSOR_TYPE == 'DHT22'
-  mySensor.readTemperature();  // first reading to initialize DHT
-  mySensor.readHumidity();
-#endif
+  #if SENSOR_TYPE == 'DHT22'
+    mySensor.readTemperature();  // first reading to initialize DHT
+    mySensor.readHumidity();
+  #endif
   
   // start wifi
   setup_wifi();
@@ -77,15 +76,15 @@ void setup() {
 // ******* end setup *******
 
 // *******LOOP*******
-/* Try to read Sensor for at leas 5 Seconds, send Results via MQTT, then go to Deep Sleep*/
 void loop() {
-  float humi=0.0f;
+/* Read Sensor , publish Results via MQTT, then go to Deep Sleep*/
   float temp=0.0f;
+  float humi=0.0f;
   float pres=0.0f;
   bool  readok=false;
-  int   startreading=millis();
-  int   lastreading=millis()+100;
+  int   sensortime=millis();
   
+  // read sensor
   dbprint("Reading Sensor: ");
   do { // read sensore while read is not ok or 5s have not elapsed
     temp=mySensor.readTemperature();
@@ -93,21 +92,22 @@ void loop() {
     #if SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
       pres = mySensor.readPressure() / 100.0f;  // hPa
     #endif
-    if(isnan(humi) || isnan(temp)) {
+    if( //read error
+      (isnan(temp) || isnan(humi)) || // DHT21
+      ((temp==998 || humi==998) || (temp==-46.85 && humi==-6)) || // HTU21
+      (temp==0 && humi==0 && pres==0)// BME280
+      ) {
       readok=false;
-      if(lastreading <= millis()) {
-        dbprint(". ");
-        lastreading=millis()+100;
-      }
+      dbprint(".");
       delay(attemptDelay);
     } else {
       readok=true;
+      dbprintln("DONE");
     }
-  } while(!readok && (millis()-startreading) <= attemptMax);
-  lastreading=millis();
+  } while(!readok && (millis()) <= sensortime + attemptMax);
+  sensortime=millis();
 
   //debugging output
-  dbprintln("DONE");
   dbprint(temp); dbprint(" °C ");
   dbprint(humi); dbprint(" % ");
   #if SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
@@ -115,84 +115,72 @@ void loop() {
   #endif
   dbprintln();
 
-  // publish
+  // publish via MQTT
   if (readok) {
     mqttClient.publish(TEMP_TOPIC, String(temp).c_str(), false);
     mqttClient.publish(HUM_TOPIC,  String(humi).c_str(), false);
-  #if SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
-    mqttClient.publish(PRES_TOPIC,  String(pres).c_str(), false);
-  #endif
-    mqttClient.publish(TEL_TOPIC, String(lastreading).c_str(), false);
-  }
-  else {
+    #if SENSOR_TYPE == 'BME280_I2C' || SENSOR_TYPE == 'BME280_SPI'
+      mqttClient.publish(PRES_TOPIC, String(pres).c_str(), false);
+    #endif
+    mqttClient.publish(TEL_TOPIC, String(sensortime).c_str(), false);
+  } else {
+    dbprintln("Sensor Error");
     mqttClient.publish(TEL_TOPIC, "Sensor Error", false);
   }
-  mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.00).c_str(), false);
-  
+  mqttClient.publish(BAT_TOPIC,  String(ESP.getVcc()*VCC_ADJ/1024.0f).c_str(), false);
+
+  // go to deep sleep
   gotodeepsleep(SLEEP_TIME_S);
 }
-// ******* end main *******
+// ******* end loop *******
 
 void setup_wifi() {
-  //WiFi.setAutoConnect(false); // not working by its own
-  //WiFi.disconnect(); // prevent connecting to wifi based on previous configuration
+  int startwifi = millis();
+  
   WiFi.mode(WIFI_STA); // explicitly set the ESP8266 to be a WiFi-client
   WiFi.persistent(false); // do not store settings in EEPROM
   WiFi.hostname(WIFI_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));
-  #ifdef WIFI_IP && WIFI_GW && WIFI_SN
-    WiFi.config(wifi_ip, wifi_gw, wifi_sn);
+  #ifdef WIFI_IP && WIFI_GW && WIFI_SN && WIFI_DNS
+    WiFi.config(wifi_ip, wifi_gw, wifi_sn, wifi_dns);
   #endif
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  
-  dbprint("Connecting to ");
-  dbprint(WIFI_SSID);
 
-  /* This function returns following codes to describe what is going on with Wi-Fi connection: 
-  0 : WL_IDLE_STATUS when Wi-Fi is in process of changing between statuses
-  1 : WL_NO_SSID_AVAIL in case configured SSID cannot be reached
-  3 : WL_CONNECTED after successful connection is established
-  4 : WL_CONNECT_FAILED if password is incorrect
-  6 : WL_DISCONNECTED if module is not configured in station mode
-  Serial.printf( "Connection status: %d\n", WiFi.status() ); */
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  dbprint("Connecting to "); dbprint(WIFI_SSID);
   while(WiFi.status() != WL_CONNECTED) {
-    delay(200); // pauses the sketch for a given number of milliseconds and allows WiFi and TCP/IP tasks to run
+    delay(200); // pauses the sketch and allows WiFi and TCP/IP tasks to run
     dbprint(".");
+    if(millis() >= startwifi + attemptMax && WiFi.status() != WL_CONNECTED) {
+      dbprintln("\nNo WiFi connection after 5 s, goint to deep sleep");
+      gotodeepsleep(SLEEP_TIME_S*4);
+    }
   }
-  dbprint("\nWiFi connected, IP address: ");
-  dbprintln(WiFi.localIP());
+  dbprint("\nWiFi connected, IP address: "); dbprintln(WiFi.localIP());
 }
 
 void reconnect_mqtt() {
-  /* Reconnect to MQTT Server */
-  int fails = 0;
-  
+/* Connect to MQTT Server */
+  int startmqtt = millis();
+
+  dbprint("Attempting MQTT connection: ");
   while (!mqttClient.connected()) {
-    dbprint("Attempting MQTT connection...");
-    // Attempt to connect
-    // If you do not want to use a username and password, change next line to
-    // if (mqttClient.connect("ESP8266Client"))
     if (mqttClient.connect(WIFI_HOSTNAME, MQTT_USER, MQTT_PASSWORD)) {
       dbprintln("connected");
-    }
-    else {
-      dbprint("failed, rc=");
-      dbprint(mqttClient.state());
-      dbprintln(" try again in 5 seconds");
-      // Wait 1 second before retrying
-      delay(1000);
-      if(fails > 3) {
+    } else {
+      dbprint("failed, rc="); dbprint(mqttClient.state());
+      if(millis() >= startmqtt + attemptMax) {
+        dbprintln("\nNo MQTT connection after 5 s, goint to deep sleep");
         gotodeepsleep(SLEEP_TIME_S*4);
       }
-      fails++;
+      dbprintln(" try again in 1 second");
+      delay(1000);
     }
   }
 }
 
 void gotodeepsleep(int sleeptime) {
-/*ESP.deepSleep(microseconds, mode) will put the chip into deep sleep.
-  mode is one of WAKE_RF_DEFAULT, WAKE_RFCAL, WAKE_NO_RFCAL, WAKE_RF_DISABLED.
-  (GPIO16 needs to be tied to RST to wake from deepSleep.)*/
-  dbprintln("Power off Sensor -  going to deep sleep");
+/* power off Sensor, handle WiFi and go to deep sleep */
+  dbprintln("Power off Sensor - going to deep sleep");
+  dbprint("Total Uptime was: "); dbprint(millis()); dbprintln(" ms");
   digitalWrite(SENSOR_PWR, LOW);
   
   mqttClient.loop();
@@ -202,6 +190,7 @@ void gotodeepsleep(int sleeptime) {
     ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
   #else
     ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
+    // GPIO16 needs to be tied to RST to wake from deep sleep
   #endif
   
   yield();
