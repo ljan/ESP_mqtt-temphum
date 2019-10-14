@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
@@ -42,6 +43,69 @@ PubSubClient mqttClient(espClient);
 
 ADC_MODE(ADC_VCC);  // Read internal vcc rather than voltage on ADC pin (A0 must be floating)
 
+
+void gotodeepsleep(int sleeptime) {
+/* power off Sensor, handle WiFi and go to deep sleep */
+  dbprintln("Power off Sensor - going to deep sleep");
+  dbprint("Total Uptime was: "); dbprint(millis()); dbprintln(" ms");
+  digitalWrite(SENSOR_PWR, LOW);
+  
+  mqttClient.loop();
+  yield();
+  delay(100);
+  #ifdef DEBUG
+    ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
+  #else
+    ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
+    // GPIO16 needs to be tied to RST to wake from deep sleep
+  #endif
+  
+  yield();
+  delay(100);
+}
+
+void setup_wifi() {
+  int startwifi = millis();
+  
+  WiFi.mode(WIFI_STA); // explicitly set the ESP8266 to be a WiFi-client
+  WiFi.persistent(false); // do not store settings in EEPROM
+  WiFi.hostname(WIFI_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));
+  #ifdef WIFI_IP && WIFI_GW && WIFI_SN && WIFI_DNS
+    WiFi.config(wifi_ip, wifi_gw, wifi_sn, wifi_dns);
+  #endif
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  dbprint("Connecting to "); dbprint(WIFI_SSID);
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(200); // pauses the sketch and allows WiFi and TCP/IP tasks to run
+    dbprint(".");
+    if(millis() >= startwifi + attemptMax && WiFi.status() != WL_CONNECTED) {
+      dbprintln("\nNo WiFi connection after 5 s, goint to deep sleep");
+      gotodeepsleep(SLEEP_TIME_S*4);
+    }
+  }
+  dbprint("\nWiFi connected, IP address: "); dbprintln(WiFi.localIP());
+}
+
+void reconnect_mqtt() {
+/* Connect to MQTT Server */
+  int startmqtt = millis();
+
+  dbprint("Attempting MQTT connection: ");
+  while (!mqttClient.connected()) {
+    if (mqttClient.connect(WIFI_HOSTNAME, MQTT_USER, MQTT_PASSWORD)) {
+      dbprintln("connected");
+    } else {
+      dbprint("failed, rc="); dbprint(mqttClient.state());
+      if(millis() >= startmqtt + attemptMax) {
+        dbprintln("\nNo MQTT connection after 5 s, goint to deep sleep");
+        gotodeepsleep(SLEEP_TIME_S*4);
+      }
+      dbprintln(" try again in 1 second");
+      delay(1000);
+    }
+  }
+}
 
 // *******SETUP*******
 void setup() {
@@ -133,68 +197,5 @@ void loop() {
   gotodeepsleep(SLEEP_TIME_S);
 }
 // ******* end loop *******
-
-void setup_wifi() {
-  int startwifi = millis();
-  
-  WiFi.mode(WIFI_STA); // explicitly set the ESP8266 to be a WiFi-client
-  WiFi.persistent(false); // do not store settings in EEPROM
-  WiFi.hostname(WIFI_HOSTNAME + String("-") + String(ESP.getChipId(), HEX));
-  #ifdef WIFI_IP && WIFI_GW && WIFI_SN && WIFI_DNS
-    WiFi.config(wifi_ip, wifi_gw, wifi_sn, wifi_dns);
-  #endif
-
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  dbprint("Connecting to "); dbprint(WIFI_SSID);
-  while(WiFi.status() != WL_CONNECTED) {
-    delay(200); // pauses the sketch and allows WiFi and TCP/IP tasks to run
-    dbprint(".");
-    if(millis() >= startwifi + attemptMax && WiFi.status() != WL_CONNECTED) {
-      dbprintln("\nNo WiFi connection after 5 s, goint to deep sleep");
-      gotodeepsleep(SLEEP_TIME_S*4);
-    }
-  }
-  dbprint("\nWiFi connected, IP address: "); dbprintln(WiFi.localIP());
-}
-
-void reconnect_mqtt() {
-/* Connect to MQTT Server */
-  int startmqtt = millis();
-
-  dbprint("Attempting MQTT connection: ");
-  while (!mqttClient.connected()) {
-    if (mqttClient.connect(WIFI_HOSTNAME, MQTT_USER, MQTT_PASSWORD)) {
-      dbprintln("connected");
-    } else {
-      dbprint("failed, rc="); dbprint(mqttClient.state());
-      if(millis() >= startmqtt + attemptMax) {
-        dbprintln("\nNo MQTT connection after 5 s, goint to deep sleep");
-        gotodeepsleep(SLEEP_TIME_S*4);
-      }
-      dbprintln(" try again in 1 second");
-      delay(1000);
-    }
-  }
-}
-
-void gotodeepsleep(int sleeptime) {
-/* power off Sensor, handle WiFi and go to deep sleep */
-  dbprintln("Power off Sensor - going to deep sleep");
-  dbprint("Total Uptime was: "); dbprint(millis()); dbprintln(" ms");
-  digitalWrite(SENSOR_PWR, LOW);
-  
-  mqttClient.loop();
-  yield();
-  delay(100);
-  #ifdef DEBUG
-    ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
-  #else
-    ESP.deepSleep(sleeptime*1e6, WAKE_RF_DEFAULT);
-    // GPIO16 needs to be tied to RST to wake from deep sleep
-  #endif
-  
-  yield();
-  delay(100);
-}
 
 // EOF
