@@ -27,7 +27,7 @@
   
 #endif
 
-#ifdef WIFI_IP && WIFI_GW && WIFI_SN
+#ifdef WIFI_IP && WIFI_GW && WIFI_SN && WIFI_DNS
   IPAddress wifi_ip(WIFI_IP);
   IPAddress wifi_gw(WIFI_GW);
   IPAddress wifi_sn(WIFI_SN);
