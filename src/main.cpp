@@ -109,7 +109,7 @@ void reconnect_mqtt() {
 
 // *******SETUP*******
 void setup() {
-/* Bootup, Power and Initialize Sensor, Setup Wifi and MQTT */
+/* Boot-up, Power and Initialize Sensor, Setup Wifi and MQTT */
   dbserialbegin(74880);
   dbprintln(""); dbprintln("");
   dbprintln("BOOT");
