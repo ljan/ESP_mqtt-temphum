@@ -3,7 +3,7 @@
 #define WIFI_PASSWORD  "pwd"        // Enter your network WPA key
 #define WIFI_HOSTNAME  "tempsens"   // Enter your device friendly name
 
-// Static IP - optional
+// Static IP - optional, this saves around 500 ms
 //#define WIFI_IP         192,168,1,123
 //#define WIFI_GW         192,168,1,1
 //#define WIFI_SN         255,255,255,0
@@ -16,12 +16,7 @@
 #define MQTT_PASSWORD     "pwd"     // Enter Password for MQTT Connection
 
 // MQTT-Topics
-#define TEMP_TOPIC        "sensor/data/temperature"
-#define HUM_TOPIC         "sensor/data/humidity"
-#define PRES_TOPIC        "sensor/data/pressure"
-#define BAT_TOPIC         "sensor/telemetry/battery"
-#define TEL_TOPIC         "sensor/telemetry/status"
-#define OTA_TOPIC         "sensor/telemetry/ota"
+#define TOPIC             "tempsens/sensor/message"
 
 // Sensor
 #define SENSOR_TYPE       'DHT22' // DHT22 HTU21 BME280_SPI BME280_I2S
